@@ -9,7 +9,6 @@ import shutil
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -78,7 +77,6 @@ def check_mongodb(strict: bool) -> bool:
     """Check MongoDB connectivity when requested."""
     try:
         from pymongo import MongoClient
-        from pymongo.errors import PyMongoError
 
         uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
         client = MongoClient(uri, serverSelectionTimeoutMS=1000)

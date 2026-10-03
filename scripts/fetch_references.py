@@ -5,7 +5,6 @@ from pathlib import Path
 
 from datasets import Audio, load_dataset
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = PROJECT_ROOT / "results"
 REFERENCE_PATH = RESULTS_DIR / "references.json"
