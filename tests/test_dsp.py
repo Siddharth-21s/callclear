@@ -13,17 +13,67 @@ from app.dsp.enhancement import (
 from app.dsp.telephony import (
     DegradationConfig,
     add_noise_at_snr,
+    apply_packet_loss,
+    band_limit,
     degrade_audio,
     mu_law_decode,
     mu_law_encode,
 )
 
 
+def _measured_snr_db(
+    clean: np.ndarray,
+    noisy: np.ndarray,
+) -> float:
+    """Measure SNR between a clean signal and its noisy version."""
+    signal_power = float(np.mean(np.square(clean)))
+    noise = noisy - clean
+    noise_power = float(np.mean(np.square(noise)))
+
+    return 10.0 * np.log10(signal_power / noise_power)
+
+
+def _longest_zero_run(audio: np.ndarray) -> int:
+    """Return the longest consecutive run of exact zeros."""
+    zero = np.asarray(audio) == 0.0
+
+    longest = 0
+    current = 0
+
+    for value in zero:
+        if value:
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 0
+
+    return longest
+
+
 def test_mu_law_round_trip_is_bounded() -> None:
     x = np.linspace(-1, 1, 1000, dtype=np.float32)
     y = mu_law_decode(mu_law_encode(x))
+
     assert np.max(np.abs(y)) <= 1.0
     assert np.mean(np.abs(y - x)) < 0.01
+
+
+def test_mu_law_known_endpoint_codes() -> None:
+    x = np.array(
+        [-1.0, 0.0, 1.0],
+        dtype=np.float32,
+    )
+
+    encoded = mu_law_encode(x)
+
+    assert encoded.tolist() == [0, 128, 255]
+
+
+def test_mu_law_zero_decodes_near_zero() -> None:
+    encoded = np.array([128], dtype=np.uint8)
+    decoded = mu_law_decode(encoded)
+
+    assert abs(float(decoded[0])) < 0.01
 
 
 def test_degrade_outputs_8khz() -> None:
@@ -34,7 +84,10 @@ def test_degrade_outputs_8khz() -> None:
     output, rate = degrade_audio(
         source,
         16000,
-        DegradationConfig(snr_db=10, seed=1),
+        DegradationConfig(
+            snr_db=10,
+            seed=1,
+        ),
     )
 
     assert rate == 8000
@@ -206,7 +259,11 @@ def test_enhancement_returns_audio() -> None:
         2 * np.pi * 440 * np.arange(8000) / 8000
     ).astype(np.float32)
 
-    y = enhance_audio(x, 8000, method="highpass")
+    y = enhance_audio(
+        x,
+        8000,
+        method="highpass",
+    )
 
     assert y.size == x.size
     assert y.dtype == np.float32
@@ -221,10 +278,17 @@ def test_wiener_filter_preserves_length() -> None:
 
     noisy = (
         clean
-        + rng.normal(0.0, 0.05, size=8000)
+        + rng.normal(
+            0.0,
+            0.05,
+            size=8000,
+        )
     ).astype(np.float32)
 
-    enhanced = wiener_filter(noisy, 8000)
+    enhanced = wiener_filter(
+        noisy,
+        8000,
+    )
 
     assert enhanced.size == noisy.size
     assert enhanced.dtype == np.float32
@@ -240,10 +304,17 @@ def test_spectral_subtraction_preserves_length() -> None:
 
     noisy = (
         clean
-        + rng.normal(0.0, 0.05, size=8000)
+        + rng.normal(
+            0.0,
+            0.05,
+            size=8000,
+        )
     ).astype(np.float32)
 
-    enhanced = spectral_subtraction_filter(noisy, 8000)
+    enhanced = spectral_subtraction_filter(
+        noisy,
+        8000,
+    )
 
     assert enhanced.size == noisy.size
     assert enhanced.dtype == np.float32
@@ -253,10 +324,15 @@ def test_spectral_subtraction_preserves_length() -> None:
 def test_spectral_gate_preserves_length() -> None:
     x = (
         0.25
-        * np.sin(2 * np.pi * 440 * np.arange(8000) / 8000)
+        * np.sin(
+            2 * np.pi * 440 * np.arange(8000) / 8000
+        )
     ).astype(np.float32)
 
-    y = spectral_gate(x, 8000)
+    y = spectral_gate(
+        x,
+        8000,
+    )
 
     assert y.size == x.size
     assert y.dtype == np.float32
@@ -267,27 +343,62 @@ def test_enhancement_methods_are_deterministic() -> None:
     rng = np.random.default_rng(789)
 
     x = (
-        0.2 * np.sin(2 * np.pi * 440 * np.arange(8000) / 8000)
-        + rng.normal(0.0, 0.02, size=8000)
+        0.2
+        * np.sin(
+            2 * np.pi * 440 * np.arange(8000) / 8000
+        )
+        + rng.normal(
+            0.0,
+            0.02,
+            size=8000,
+        )
     ).astype(np.float32)
 
-    for method in ("highpass", "spectral_gate", "wiener"):
-        first = enhance_audio(x, 8000, method=method)
-        second = enhance_audio(x, 8000, method=method)
+    for method in (
+        "highpass",
+        "spectral_gate",
+        "wiener",
+    ):
+        first = enhance_audio(
+            x,
+            8000,
+            method=method,
+        )
 
-        assert np.array_equal(first, second)
+        second = enhance_audio(
+            x,
+            8000,
+            method=method,
+        )
+
+        assert np.array_equal(
+            first,
+            second,
+        )
 
 
 def test_enhancement_rejects_unknown_method() -> None:
-    x = np.zeros(8000, dtype=np.float32)
+    x = np.zeros(
+        8000,
+        dtype=np.float32,
+    )
 
     try:
-        enhance_audio(x, 8000, method="unknown")
+        enhance_audio(
+            x,
+            8000,
+            method="unknown",
+        )
     except ValueError as exc:
         assert "method must be one of" in str(exc)
     else:
-        raise AssertionError("Unknown enhancement method should fail.")
+        raise AssertionError(
+            "Unknown enhancement method should fail."
+        )
 
 
 def test_percentile() -> None:
-    assert percentile([1, 2, 3, 4], 50) == 2.5
+    assert percentile(
+        [1, 2, 3, 4],
+        50,
+    ) == 2.5
