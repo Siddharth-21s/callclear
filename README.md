@@ -1,8 +1,17 @@
 # CallClear
 
-CallClear benchmarks automatic speech recognition (ASR) robustness on Indian telephony-style audio and evaluates whether DSP-based audio enhancement improves recognition.
+CallClear benchmarks automatic speech recognition (ASR) robustness on
+Indian telephony-style audio and evaluates whether DSP-based audio
+enhancement improves recognition.
 
-The project takes clean Hindi speech, simulates a degraded telephone channel, runs ASR on clean/degraded/enhanced audio, and measures word error rate (WER) and inference performance.
+The project takes clean Hindi speech, simulates a degraded telephone
+channel, runs ASR on clean/degraded/enhanced audio, and measures word
+error rate (WER) and inference performance.
+
+> **Current benchmark:** The repository is being expanded toward a
+> reproducible multi-SNR, multi-enhancement benchmark. Final headline
+> numbers will be updated after the complete benchmark sweep is run on
+> the local machine.
 
 ## Problem
 
@@ -16,7 +25,8 @@ CallClear simulates a conservative telephony channel by:
 - Adding controlled noise
 - Simulating short packet-loss gaps
 
-The resulting degraded audio is passed through a DSP enhancement stage and then through Faster-Whisper.
+The resulting degraded audio is passed through a DSP enhancement stage
+and then through Faster-Whisper.
 
 The benchmark compares:
 
@@ -24,7 +34,8 @@ The benchmark compares:
 2. Telephony-degraded speech
 3. DSP-enhanced speech
 
-The project intentionally reports measured results rather than assuming that enhancement improves ASR.
+The project intentionally reports measured results rather than assuming
+that enhancement improves ASR.
 
 ## Architecture
 

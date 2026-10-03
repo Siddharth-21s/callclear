@@ -26,9 +26,17 @@ data/enhanced/*
 !data/degraded/.gitkeep
 !data/enhanced/.gitkeep
 
-# Generated benchmark results
+# Generated benchmark audio
+results/*.wav
+
+# Track reproducible benchmark metadata and visual results.
+# These files are intentionally committed.
 results/*
 !results/.gitkeep
+!results/references.json
+!results/benchmark_results.csv
+!results/benchmark_summary.json
+!results/wer_vs_snr.png
 
 # Root-level model artifacts only
 /models/

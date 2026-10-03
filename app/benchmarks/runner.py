@@ -72,19 +72,94 @@ def _load_references(
     """Load cached FLEURS references from JSON."""
     if not path.exists():
         raise FileNotFoundError(
-            f"Reference file not found: {path}"
+            "\n"
+            "Benchmark reference data is missing.\n"
+            f"Expected file: {path}\n\n"
+            "Create it first by running:\n"
+            "  uv run python scripts/fetch_references.py\n\n"
+            "Then run the benchmark:\n"
+            "  uv run python scripts/run_benchmark.py\n"
         )
 
-    with path.open(
-        "r",
-        encoding="utf-8",
-    ) as handle:
-        data = json.load(handle)
+    try:
+        with path.open(
+            "r",
+            encoding="utf-8",
+        ) as handle:
+            data = json.load(handle)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Benchmark reference file is not valid JSON: {path}"
+        ) from exc
+
+    if not isinstance(data, dict):
+        raise RuntimeError(
+            f"Benchmark reference file must contain a JSON object: {path}"
+        )
 
     return {
         int(sample_id): value
         for sample_id, value in data.items()
     }
+
+
+def _find_clean_files(
+    results_dir: Path,
+    limit: int,
+) -> list[Path]:
+    """Find the cached clean WAV files required by the benchmark."""
+    clean_files = sorted(
+        results_dir.glob("clean_*.wav")
+    )
+
+    if not clean_files:
+        raise FileNotFoundError(
+            "\n"
+            "No cached clean benchmark WAV files were found.\n"
+            f"Expected files such as: {results_dir}/clean_0000.wav\n\n"
+            "Make sure the clean FLEURS benchmark audio has been "
+            "prepared before running the benchmark."
+        )
+
+    if len(clean_files) < limit:
+        raise RuntimeError(
+            "\n"
+            f"Benchmark requires {limit} clean WAV files, "
+            f"but only {len(clean_files)} were found.\n"
+            f"Results directory: {results_dir}\n"
+        )
+
+    return clean_files[:limit]
+
+
+def _validate_reference_coverage(
+    clean_files: list[Path],
+    references: dict[int, dict[str, Any]],
+) -> None:
+    """Ensure every selected clean WAV has a reference transcript."""
+    missing_ids: list[int] = []
+
+    for clean_path in clean_files:
+        sample_id = int(
+            clean_path.stem.split("_")[-1]
+        )
+
+        if sample_id not in references:
+            missing_ids.append(sample_id)
+
+    if missing_ids:
+        formatted_ids = ", ".join(
+            str(sample_id)
+            for sample_id in missing_ids
+        )
+
+        raise RuntimeError(
+            "\n"
+            "Benchmark reference coverage is incomplete.\n"
+            f"Missing references for sample IDs: {formatted_ids}\n\n"
+            "Regenerate the reference manifest with:\n"
+            "  uv run python scripts/fetch_references.py\n"
+        )
 
 
 def _save_csv(
@@ -150,6 +225,9 @@ def _save_summary(
             for row in rows
             if row["condition"] == condition
         ]
+
+        if not condition_rows:
+            continue
 
         wers = [
             float(row["wer"])
@@ -217,9 +295,12 @@ def _plot_wer(
             if row["condition"] == condition
         ]
 
-        means.append(
-            sum(values) / len(values)
-        )
+        if values:
+            means.append(
+                sum(values) / len(values)
+            )
+        else:
+            means.append(0.0)
 
     plt.figure(figsize=(8, 5))
     plt.bar(
@@ -245,6 +326,11 @@ def run_local_benchmark(
     model_name: str = "base",
 ) -> dict[str, Any]:
     """Run the benchmark entirely from local cached audio."""
+    results_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
     reference_path = (
         results_dir / "references.json"
     )
@@ -253,28 +339,15 @@ def run_local_benchmark(
         reference_path
     )
 
-    clean_files = sorted(
-        results_dir.glob("clean_*.wav")
+    selected_files = _find_clean_files(
+        results_dir=results_dir,
+        limit=limit,
     )
 
-    if len(clean_files) < limit:
-        raise RuntimeError(
-            f"Expected at least {limit} clean WAV files, "
-            f"found {len(clean_files)}."
-        )
-
-    selected_files = clean_files[:limit]
-
-    for clean_path in selected_files:
-        sample_id = int(
-            clean_path.stem.split("_")[-1]
-        )
-
-        if sample_id not in references:
-            raise RuntimeError(
-                f"No reference found for sample "
-                f"{sample_id}."
-            )
+    _validate_reference_coverage(
+        clean_files=selected_files,
+        references=references,
+    )
 
     engine = WhisperEngine(
         model_name=model_name,

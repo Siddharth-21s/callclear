@@ -12,8 +12,18 @@ from app.benchmarks.runner import run_local_benchmark
 
 
 def main() -> None:
-    """Run the local benchmark."""
+    """Run the local benchmark using cached benchmark inputs."""
     results_dir = PROJECT_ROOT / "results"
+
+    print(
+        "CallClear benchmark\n"
+        "-------------------\n"
+        f"Results directory: {results_dir}\n"
+        "\n"
+        "Required inputs:\n"
+        "  - cached clean_*.wav files\n"
+        "  - results/references.json\n"
+    )
 
     run_local_benchmark(
         results_dir=results_dir,

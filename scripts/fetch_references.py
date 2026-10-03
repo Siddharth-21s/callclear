@@ -1,4 +1,4 @@
-"""Recover references for the eight cached FLEURS samples."""
+"""Recover references for the cached FLEURS benchmark samples."""
 
 import json
 from pathlib import Path
@@ -6,19 +6,30 @@ from pathlib import Path
 from datasets import Audio, load_dataset
 
 
-RESULTS_DIR = Path("results")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+RESULTS_DIR = PROJECT_ROOT / "results"
 REFERENCE_PATH = RESULTS_DIR / "references.json"
 SAMPLE_COUNT = 8
 
 
 def main() -> None:
-    """Fetch the first cached FLEURS references in dataset order."""
-    clean_files = sorted(RESULTS_DIR.glob("clean_*.wav"))
+    """Fetch references for the cached benchmark WAV files."""
+    RESULTS_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    clean_files = sorted(
+        RESULTS_DIR.glob("clean_*.wav")
+    )
 
     if len(clean_files) < SAMPLE_COUNT:
         raise RuntimeError(
+            "\n"
             f"Expected at least {SAMPLE_COUNT} cached clean WAV files, "
-            f"found {len(clean_files)}."
+            f"found {len(clean_files)}.\n"
+            f"Expected directory: {RESULTS_DIR}\n\n"
+            "Prepare the clean benchmark WAV files first."
         )
 
     print(
@@ -38,7 +49,7 @@ def main() -> None:
         Audio(decode=False),
     )
 
-    references = {}
+    references: dict[str, dict[str, object]] = {}
 
     for sample_index, item in enumerate(dataset):
         if sample_index >= SAMPLE_COUNT:
@@ -53,14 +64,16 @@ def main() -> None:
 
         print(
             f"\nSample {sample_index}"
-            f"  FLEURS ID: {item['id']}"
+            f"\n  FLEURS ID: {item['id']}"
             f"\n  Reference: "
             f"{item['transcription']}"
         )
 
     if len(references) != SAMPLE_COUNT:
         raise RuntimeError(
-            f"Only recovered {len(references)} references."
+            "\n"
+            f"Only recovered {len(references)} references; "
+            f"expected {SAMPLE_COUNT}."
         )
 
     with REFERENCE_PATH.open(
@@ -76,6 +89,12 @@ def main() -> None:
 
     print(
         f"\nSaved references to {REFERENCE_PATH}"
+    )
+    print(
+        "The benchmark can now be run with:"
+    )
+    print(
+        "  uv run python scripts/run_benchmark.py"
     )
 
 
