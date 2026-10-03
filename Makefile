@@ -12,7 +12,7 @@ test:
 	$(UV) run pytest -m "not integration" -q
 
 benchmark:
-	$(UV) run python scripts/run_benchmark.py --limit 5 --model base
+	$(UV) run python scripts/run_benchmark.py
 
 smoke:
 	$(UV) run python scripts/smoke_test.py

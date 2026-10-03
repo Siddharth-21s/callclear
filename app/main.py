@@ -5,7 +5,14 @@ import uuid
 from pathlib import Path
 
 import soundfile as sf
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 from fastapi.responses import FileResponse
 
 from app.asr.engine import WhisperEngine
@@ -13,7 +20,11 @@ from app.benchmarks.runner import run_local_benchmark
 from app.core.config import get_settings
 from app.db.mongo import MongoRepository
 from app.dsp.enhancement import enhance_audio
-from app.dsp.telephony import DegradationConfig, degrade_audio
+from app.dsp.telephony import (
+    DegradationConfig,
+    degrade_audio,
+)
+
 
 settings = get_settings()
 
@@ -35,7 +46,10 @@ def _ensure_dirs() -> None:
         settings.enhanced_dir,
         Path("results"),
     ):
-        path.mkdir(parents=True, exist_ok=True)
+        path.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
 
 @app.on_event("startup")
@@ -44,13 +58,27 @@ async def startup() -> None:
     _ensure_dirs()
 
 
-def _save_upload(upload: UploadFile, directory: Path) -> Path:
+def _save_upload(
+    upload: UploadFile,
+    directory: Path,
+) -> Path:
     """Save an uploaded file and return its path."""
-    suffix = Path(upload.filename or "audio.wav").suffix.lower() or ".wav"
-    path = directory / f"{uuid.uuid4().hex}{suffix}"
+    suffix = (
+        Path(
+            upload.filename or "audio.wav"
+        ).suffix.lower()
+        or ".wav"
+    )
+
+    path = (
+        directory
+        / f"{uuid.uuid4().hex}{suffix}"
+    )
 
     with path.open("wb") as handle:
-        while chunk := upload.file.read(1024 * 1024):
+        while chunk := upload.file.read(
+            1024 * 1024
+        ):
             handle.write(chunk)
 
     return path
@@ -58,7 +86,6 @@ def _save_upload(upload: UploadFile, directory: Path) -> Path:
 
 @app.get("/")
 def root() -> dict[str, str]:
-    """Return basic service information."""
     return {
         "message": "CallClear API is running",
         "version": "0.1.0",
@@ -67,8 +94,9 @@ def root() -> dict[str, str]:
 
 @app.get("/health")
 async def health() -> dict[str, object]:
-    """Return service and MongoDB health."""
+    """Return service and MongoDB health information."""
     mongo_ok = False
+
     repository = MongoRepository(
         settings.mongodb_uri,
         settings.mongodb_database,
@@ -96,9 +124,13 @@ def degrade(
     packet_loss_probability: float = Form(0.02),
     packet_loss_ms: float = Form(60.0),
 ) -> FileResponse:
-    """Degrade an uploaded WAV file using the telephone simulator."""
+    """Apply telephony degradation to an uploaded WAV."""
     _ensure_dirs()
-    source = _save_upload(file, settings.raw_dir)
+
+    source = _save_upload(
+        file,
+        settings.raw_dir,
+    )
 
     try:
         audio, sample_rate = sf.read(
@@ -109,16 +141,22 @@ def degrade(
         if getattr(audio, "ndim", 1) != 1:
             raise HTTPException(
                 status_code=400,
-                detail="Only mono WAV files are supported.",
+                detail=(
+                    "Only mono WAV files are supported."
+                ),
             )
 
         degraded, output_rate = degrade_audio(
             audio,
             sample_rate,
             DegradationConfig(
-                target_sample_rate=settings.telephony_sample_rate,
+                target_sample_rate=(
+                    settings.telephony_sample_rate
+                ),
                 snr_db=snr_db,
-                packet_loss_probability=packet_loss_probability,
+                packet_loss_probability=(
+                    packet_loss_probability
+                ),
                 packet_loss_ms=packet_loss_ms,
             ),
         )
@@ -143,6 +181,7 @@ def degrade(
 
     except HTTPException:
         raise
+
     except Exception as exc:
         raise HTTPException(
             status_code=400,
@@ -155,9 +194,13 @@ def enhance(
     file: UploadFile = File(...),
     method: str = Form("wiener"),
 ) -> FileResponse:
-    """Enhance an uploaded WAV file."""
+    """Enhance an uploaded WAV."""
     _ensure_dirs()
-    source = _save_upload(file, settings.degraded_dir)
+
+    source = _save_upload(
+        file,
+        settings.degraded_dir,
+    )
 
     try:
         audio, sample_rate = sf.read(
@@ -202,12 +245,18 @@ def transcribe(
     model: str | None = Form(None),
     language: str | None = Form(None),
 ) -> dict[str, object]:
-    """Transcribe an uploaded WAV file."""
+    """Transcribe an uploaded WAV."""
     _ensure_dirs()
-    source = _save_upload(file, settings.raw_dir)
+
+    source = _save_upload(
+        file,
+        settings.raw_dir,
+    )
 
     engine = WhisperEngine(
-        model_name=model or settings.asr_model,
+        model_name=(
+            model or settings.asr_model
+        ),
         device=settings.asr_device,
         compute_type=settings.asr_compute_type,
     )
@@ -215,7 +264,10 @@ def transcribe(
     try:
         result = engine.transcribe(
             source,
-            language=language or settings.asr_language,
+            language=(
+                language
+                or settings.asr_language
+            ),
             beam_size=settings.asr_beam_size,
         )
 
@@ -232,7 +284,7 @@ async def _benchmark_task(
     limit: int,
     model: str,
 ) -> None:
-    """Run the local benchmark outside the request handler."""
+    """Run the benchmark in a worker thread."""
     await asyncio.to_thread(
         run_local_benchmark,
         Path("results"),
@@ -247,11 +299,13 @@ async def benchmark_run(
     limit: int = 8,
     model: str = "base",
 ) -> dict[str, object]:
-    """Start the local cached benchmark as a background task."""
+    """Start a local benchmark in the background."""
     if not 1 <= limit <= 8:
         raise HTTPException(
             status_code=400,
-            detail="limit must be between 1 and 8",
+            detail=(
+                "limit must be between 1 and 8"
+            ),
         )
 
     background_tasks.add_task(
@@ -270,7 +324,7 @@ async def benchmark_run(
 
 @app.get("/benchmarks")
 async def benchmarks() -> dict[str, object]:
-    """Return recent benchmark records from MongoDB."""
+    """Return recent benchmark runs and result rows."""
     repository = MongoRepository(
         settings.mongodb_uri,
         settings.mongodb_database,
@@ -278,18 +332,30 @@ async def benchmarks() -> dict[str, object]:
 
     try:
         await repository.connect()
-        rows = await repository.list_benchmarks()
+
+        runs = await repository.list_runs(
+            limit=20
+        )
+
+        rows = await repository.list_benchmarks(
+            limit=100
+        )
 
         return {
-            "count": len(rows),
+            "mongodb": "available",
+            "runs_count": len(runs),
+            "runs": runs,
+            "results_count": len(rows),
             "results": rows,
         }
 
     except Exception as exc:
         return {
-            "count": 0,
-            "results": [],
             "mongodb": "unavailable",
+            "runs_count": 0,
+            "runs": [],
+            "results_count": 0,
+            "results": [],
             "detail": str(exc),
         }
 
