@@ -1,5 +1,7 @@
 # CallClear
 
+[![CI](https://github.com/Siddharth-21s/callclear/actions/workflows/ci.yml/badge.svg)](https://github.com/Siddharth-21s/callclear/actions/workflows/ci.yml)
+
 CallClear is a Python-based speech engineering project for evaluating
 automatic speech recognition (ASR) robustness on Indian telephony-style
 audio.
