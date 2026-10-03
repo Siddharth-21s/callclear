@@ -1,0 +1,50 @@
+CallClear MANIFEST
+
+Each line lists a file and its purpose.
+
+.dockerignore — Docker build context exclusions.
+.env.example — Example environment configuration.
+.gitignore — Git ignore rules.
+Dockerfile — CPU-oriented slim container image.
+MANIFEST.txt — Manifest of every file included in the archive.
+Makefile — Convenience setup/run/test/benchmark commands.
+README.md — Project documentation, architecture, setup, usage, results and limitations.
+app/__init__.py — Python package marker or support file.
+app/api/__init__.py — Python package marker or support file.
+app/asr/__init__.py — Python package marker or support file.
+app/asr/engine.py — Lazy Faster-Whisper CPU wrapper.
+app/benchmarks/__init__.py — Python package marker or support file.
+app/benchmarks/metrics.py — Latency percentile helpers.
+app/benchmarks/runner.py — Streaming FLEURS benchmark runner and result export.
+app/core/__init__.py — Python package marker or support file.
+app/core/config.py — Environment-backed settings.
+app/db/__init__.py — Python package marker or support file.
+app/db/mongo.py — Async Motor MongoDB repository.
+app/dsp/__init__.py — Python package marker or support file.
+app/dsp/enhancement.py — High-pass, Wiener, spectral gate and Silero VAD enhancement.
+app/dsp/telephony.py — Telephony degradation DSP.
+app/main.py — FastAPI application and endpoint handlers.
+app/models/__init__.py — Python package marker or support file.
+app/models/schemas.py — Pydantic API schemas.
+asr/README.md — Python package marker or support file.
+asr/__init__.py — Python package marker or support file.
+benchmarks/README.md — Python package marker or support file.
+benchmarks/__init__.py — Python package marker or support file.
+data/degraded/.gitkeep — Python package marker or support file.
+data/enhanced/.gitkeep — Python package marker or support file.
+data/raw/.gitkeep — Python package marker or support file.
+db/README.md — Python package marker or support file.
+db/__init__.py — Python package marker or support file.
+docker-compose.yml — API plus MongoDB local deployment.
+dsp/README.md — Python package marker or support file.
+dsp/__init__.py — Python package marker or support file.
+pyproject.toml — Pinned Python dependencies and tooling configuration.
+results/.gitkeep — Python package marker or support file.
+scripts/__init__.py — Python package marker or support file.
+scripts/run_benchmark.py — Benchmark CLI.
+scripts/smoke_test.py — Offline synthetic end-to-end smoke test.
+scripts/verify_setup.py — Environment and optional model/service verifier.
+tests/__init__.py — Python package marker or support file.
+tests/test_api.py — Offline API tests.
+tests/test_dsp.py — Offline DSP unit tests.
+tests/test_integration.py — Opt-in integration tests for MongoDB and Faster-Whisper.

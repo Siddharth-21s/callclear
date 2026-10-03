@@ -1,0 +1,64 @@
+[project]
+name = "callclear"
+version = "0.1.0"
+description = "Benchmarking and improving ASR robustness on Indian telephony audio."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "Cherry" }]
+dependencies = [
+    "fastapi==0.142.2",
+    "uvicorn[standard]==0.46.0",
+    "python-multipart==0.0.32",
+    "pydantic==2.13.5",
+    "pydantic-settings==2.11.0",
+    "numpy==2.3.4",
+    "scipy==1.16.0",
+    "soundfile==0.14.0",
+    "torchcodec==0.15.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.4.2",
+    "httpx==0.28.1",
+    "ruff==0.13.1",
+]
+
+[project.optional-dependencies]
+asr = [
+    "faster-whisper==1.2.1",
+    "silero-vad==6.2.3",
+    "av<19",
+]
+benchmark = [
+    "datasets==4.2.0",
+    "jiwer==4.0.0",
+    "matplotlib==3.10.7",
+]
+database = [
+    "motor==3.7.1",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]    
+build-backend = "hatchling.build"
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: requires real MongoDB and/or downloaded speech models",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

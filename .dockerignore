@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+.env
+__pycache__
+.pytest_cache
+.ruff_cache
+.mypy_cache
+*.pyc
+data/raw/*
+data/degraded/*
+data/enhanced/*
+results/*
+models/*

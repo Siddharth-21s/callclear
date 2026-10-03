@@ -1,0 +1,32 @@
+services:
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  api:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DATABASE: callclear
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      ASR_MODEL: base
+      ASR_DEVICE: cpu
+      ASR_COMPUTE_TYPE: int8
+      ASR_LANGUAGE: hi
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./results:/app/results
+
+volumes:
+  mongo_data:
