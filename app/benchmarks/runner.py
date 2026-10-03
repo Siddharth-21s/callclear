@@ -6,7 +6,7 @@ import json
 import re
 import unicodedata
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +25,6 @@ from app.core.config import get_settings
 from app.db.mongo import MongoRepository
 from app.dsp.enhancement import enhance_audio
 from app.dsp.telephony import DegradationConfig, degrade_audio
-
 
 DEFAULT_SNRS = (20.0, 10.0, 5.0, 0.0)
 
@@ -692,7 +691,7 @@ async def _persist_benchmark_to_mongo(
         settings.mongodb_database,
     )
 
-    created_at = datetime.now(timezone.utc)
+    created_at = datetime.now(UTC)
 
     try:
         await repository.connect()

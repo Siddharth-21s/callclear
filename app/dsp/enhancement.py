@@ -43,7 +43,6 @@ from functools import lru_cache
 import numpy as np
 from scipy import signal
 
-
 DEFAULT_NPERSEG = 256
 DEFAULT_NOVERLAP = 192
 DEFAULT_NOISE_PERCENTILE = 20.0

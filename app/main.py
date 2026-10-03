@@ -2,6 +2,8 @@
 
 import asyncio
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import soundfile as sf
@@ -25,17 +27,7 @@ from app.dsp.telephony import (
     degrade_audio,
 )
 
-
 settings = get_settings()
-
-app = FastAPI(
-    title="CallClear",
-    description=(
-        "Benchmarking and improving ASR robustness "
-        "on Indian telephony audio."
-    ),
-    version="0.1.0",
-)
 
 
 def _ensure_dirs() -> None:
@@ -52,10 +44,23 @@ def _ensure_dirs() -> None:
         )
 
 
-@app.on_event("startup")
-async def startup() -> None:
-    """Prepare local directories."""
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Prepare application directories during startup."""
+    del app
     _ensure_dirs()
+    yield
+
+
+app = FastAPI(
+    title="CallClear",
+    description=(
+        "Benchmarking and improving ASR robustness "
+        "on Indian telephony audio."
+    ),
+    version="0.1.0",
+    lifespan=lifespan,
+)
 
 
 def _save_upload(
@@ -86,6 +91,7 @@ def _save_upload(
 
 @app.get("/")
 def root() -> dict[str, str]:
+    """Return basic API information."""
     return {
         "message": "CallClear API is running",
         "version": "0.1.0",
@@ -96,7 +102,6 @@ def root() -> dict[str, str]:
 async def health() -> dict[str, object]:
     """Return service and MongoDB health information."""
     mongo_ok = False
-
     repository = MongoRepository(
         settings.mongodb_uri,
         settings.mongodb_database,
@@ -124,13 +129,9 @@ def degrade(
     packet_loss_probability: float = Form(0.02),
     packet_loss_ms: float = Form(60.0),
 ) -> FileResponse:
-    """Apply telephony degradation to an uploaded WAV."""
+    """Apply telephony degradation to an uploaded WAV file."""
     _ensure_dirs()
-
-    source = _save_upload(
-        file,
-        settings.raw_dir,
-    )
+    source = _save_upload(file, settings.raw_dir)
 
     try:
         audio, sample_rate = sf.read(
@@ -141,22 +142,16 @@ def degrade(
         if getattr(audio, "ndim", 1) != 1:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "Only mono WAV files are supported."
-                ),
+                detail="Only mono WAV files are supported.",
             )
 
         degraded, output_rate = degrade_audio(
             audio,
             sample_rate,
             DegradationConfig(
-                target_sample_rate=(
-                    settings.telephony_sample_rate
-                ),
+                target_sample_rate=settings.telephony_sample_rate,
                 snr_db=snr_db,
-                packet_loss_probability=(
-                    packet_loss_probability
-                ),
+                packet_loss_probability=packet_loss_probability,
                 packet_loss_ms=packet_loss_ms,
             ),
         )
@@ -181,7 +176,6 @@ def degrade(
 
     except HTTPException:
         raise
-
     except Exception as exc:
         raise HTTPException(
             status_code=400,
@@ -194,9 +188,8 @@ def enhance(
     file: UploadFile = File(...),
     method: str = Form("wiener"),
 ) -> FileResponse:
-    """Enhance an uploaded WAV."""
+    """Enhance an uploaded telephony WAV file."""
     _ensure_dirs()
-
     source = _save_upload(
         file,
         settings.degraded_dir,
@@ -245,18 +238,15 @@ def transcribe(
     model: str | None = Form(None),
     language: str | None = Form(None),
 ) -> dict[str, object]:
-    """Transcribe an uploaded WAV."""
+    """Transcribe an uploaded audio file."""
     _ensure_dirs()
-
     source = _save_upload(
         file,
         settings.raw_dir,
     )
 
     engine = WhisperEngine(
-        model_name=(
-            model or settings.asr_model
-        ),
+        model_name=(model or settings.asr_model),
         device=settings.asr_device,
         compute_type=settings.asr_compute_type,
     )
@@ -264,10 +254,7 @@ def transcribe(
     try:
         result = engine.transcribe(
             source,
-            language=(
-                language
-                or settings.asr_language
-            ),
+            language=(language or settings.asr_language),
             beam_size=settings.asr_beam_size,
         )
 
@@ -284,7 +271,7 @@ async def _benchmark_task(
     limit: int,
     model: str,
 ) -> None:
-    """Run the benchmark in a worker thread."""
+    """Run the local benchmark in a worker thread."""
     await asyncio.to_thread(
         run_local_benchmark,
         Path("results"),
@@ -303,9 +290,7 @@ async def benchmark_run(
     if not 1 <= limit <= 8:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "limit must be between 1 and 8"
-            ),
+            detail="limit must be between 1 and 8",
         )
 
     background_tasks.add_task(
@@ -324,7 +309,7 @@ async def benchmark_run(
 
 @app.get("/benchmarks")
 async def benchmarks() -> dict[str, object]:
-    """Return recent benchmark runs and result rows."""
+    """Return benchmark runs and results stored in MongoDB."""
     repository = MongoRepository(
         settings.mongodb_uri,
         settings.mongodb_database,
@@ -334,11 +319,11 @@ async def benchmarks() -> dict[str, object]:
         await repository.connect()
 
         runs = await repository.list_runs(
-            limit=20
+            limit=20,
         )
 
         rows = await repository.list_benchmarks(
-            limit=100
+            limit=100,
         )
 
         return {

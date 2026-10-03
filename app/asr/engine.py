@@ -19,7 +19,12 @@ class TranscriptionResult:
 class WhisperEngine:
     """Lazy CPU Faster-Whisper engine."""
 
-    def __init__(self, model_name: str = "base", device: str = "cpu", compute_type: str = "int8") -> None:
+    def __init__(
+        self,
+        model_name: str = "base",
+        device: str = "cpu",
+        compute_type: str = "int8",
+    ) -> None:
         self.model_name = model_name
         self.device = device
         self.compute_type = compute_type
