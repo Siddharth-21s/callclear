@@ -1,4 +1,4 @@
-"""Offline DSP tests."""
+"""Offline DSP and telephony tests."""
 
 import numpy as np
 
@@ -47,6 +47,151 @@ def test_noise_changes_signal() -> None:
     y = add_noise_at_snr(x, 0, seed=2)
 
     assert not np.array_equal(x, y)
+
+
+def test_requested_snr_is_within_half_db() -> None:
+
+    clean = (
+        0.2
+        * np.sin(
+            2 * np.pi * 440 * np.arange(16000) / 16000
+        )
+    ).astype(np.float32)
+
+    noisy = add_noise_at_snr(
+        clean,
+        10.0,
+        seed=123,
+    )
+
+    measured = _measured_snr_db(clean, noisy)
+
+    assert abs(measured - 10.0) <= 0.5
+
+
+def test_band_limit_suppresses_energy_outside_telephone_band() -> None:
+    sample_rate = 8000
+    samples = np.arange(sample_rate, dtype=np.float32)
+
+    in_band = np.sin(
+        2 * np.pi * 1000 * samples / sample_rate
+    )
+
+    low_outside = np.sin(
+        2 * np.pi * 100 * samples / sample_rate
+    )
+
+    high_outside = np.sin(
+        2 * np.pi * 3800 * samples / sample_rate
+    )
+
+    source = (
+        in_band
+        + low_outside
+        + high_outside
+    ).astype(np.float32)
+
+    filtered = band_limit(
+        source,
+        sample_rate,
+        300.0,
+        3400.0,
+    )
+
+    # Ignore filter transients at the edges.
+    source_core = source[1000:-1000]
+    filtered_core = filtered[1000:-1000]
+
+    source_energy = float(np.mean(source_core**2))
+    filtered_energy = float(np.mean(filtered_core**2))
+
+    assert filtered_energy < source_energy
+
+
+def test_band_limit_reduces_100hz_component_by_more_than_20db() -> None:
+    sample_rate = 8000
+    samples = np.arange(sample_rate, dtype=np.float32)
+
+    low = np.sin(
+        2 * np.pi * 100 * samples / sample_rate
+    ).astype(np.float32)
+
+    filtered = band_limit(
+        low,
+        sample_rate,
+        300.0,
+        3400.0,
+    )
+
+    core = slice(1000, -1000)
+
+    input_rms = float(
+        np.sqrt(np.mean(low[core] ** 2))
+    )
+    output_rms = float(
+        np.sqrt(np.mean(filtered[core] ** 2))
+    )
+
+    attenuation_db = 20.0 * np.log10(
+        max(output_rms, 1e-12) / input_rms
+    )
+
+    assert attenuation_db < -20.0
+
+
+def test_packet_loss_probability_zero_preserves_audio() -> None:
+    x = np.sin(
+        2 * np.pi * 440 * np.arange(8000) / 8000
+    ).astype(np.float32)
+
+    y = apply_packet_loss(
+        x,
+        sample_rate=8000,
+        gap_ms=60,
+        probability=0.0,
+        seed=42,
+    )
+
+    assert np.array_equal(x, y)
+
+
+def test_packet_loss_creates_expected_gap_count_and_length() -> None:
+    sample_rate = 8000
+    gap_ms = 60.0
+    probability = 0.25
+    seed = 42
+
+    x = np.ones(8000, dtype=np.float32)
+
+    y = apply_packet_loss(
+        x,
+        sample_rate=sample_rate,
+        gap_ms=gap_ms,
+        probability=probability,
+        seed=seed,
+    )
+
+    gap_samples = int(
+        sample_rate * gap_ms / 1000.0
+    )
+
+    rng = np.random.default_rng(seed)
+    packet_count = int(
+        np.ceil(x.size / gap_samples)
+    )
+    expected_losses = (
+        rng.random(packet_count) < probability
+    )
+
+    expected_loss_count = int(
+        np.sum(expected_losses)
+    )
+
+    assert int(np.sum(y == 0.0)) == (
+        expected_loss_count * gap_samples
+    )
+
+    assert _longest_zero_run(y) == gap_samples
 
 
 def test_high_pass_removes_dc() -> None:
