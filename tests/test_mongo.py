@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import sys
+import types
 from types import SimpleNamespace
 
 import pytest
@@ -107,17 +109,25 @@ def test_repository_connects_and_creates_indexes(
     """Repository should connect and prepare required indexes."""
 
     async def run() -> None:
-        import motor.motor_asyncio
-
         fake_client = _FakeClient(
             "mongodb://example",
             1500,
         )
 
-        monkeypatch.setattr(
-            motor.motor_asyncio,
-            "AsyncIOMotorClient",
-            lambda uri, serverSelectionTimeoutMS: fake_client,
+        # Replace the motor package with a fake one, so this offline test
+        # does not need the optional "motor" dependency to be installed.
+        fake_module = types.ModuleType("motor.motor_asyncio")
+        fake_module.AsyncIOMotorClient = (
+            lambda uri, serverSelectionTimeoutMS: fake_client
+        )
+        fake_package = types.ModuleType("motor")
+        fake_package.motor_asyncio = fake_module
+
+        monkeypatch.setitem(sys.modules, "motor", fake_package)
+        monkeypatch.setitem(
+            sys.modules,
+            "motor.motor_asyncio",
+            fake_module,
         )
 
         repository = MongoRepository(

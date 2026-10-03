@@ -28,7 +28,7 @@ jobs:
           enable-cache: true
 
       - name: Install project
-        run: uv sync --locked --extra benchmark
+        run: uv sync --locked --extra benchmark --extra database
 
       - name: Run Ruff
         run: uv run ruff check app tests
